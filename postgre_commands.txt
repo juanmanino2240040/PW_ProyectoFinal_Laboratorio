@@ -1,0 +1,5 @@
+(Puedes verificar que está corriendo con 
+sudo systemctl status postgresql 
+— debe decir active (running) en verde).
+
+
