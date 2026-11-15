@@ -1,0 +1,33 @@
+# Core Django & DRF
+Django==5.2
+djangorestframework==3.16.0
+asgiref==3.8.1
+sqlparse==0.5.3
+
+# Seguridad, CORS y Autenticación JWT
+django-cors-headers==4.7.0
+djangorestframework_simplejwt==5.5.0
+PyJWT==2.9.0
+
+# Búsqueda y Documentación API
+django-filter==25.1
+drf-yasg==1.21.10
+uritemplate==4.1.1
+PyYAML==6.0.2
+inflection==0.5.1
+
+# Base de Datos (PostGreSQL)
+psycopg[binary]==3.2.6
+
+# Generación de PDF, Excel e Imágenes
+xhtml2pdf==0.2.16
+openpyxl==3.1.5
+pillow==11.2.1
+
+# Auditoría / Trazabilidad (Opcional recomendado)
+django-simple-history==3.8.0
+
+# Utilidades
+pytz==2025.2
+packaging==25.0
+typing_extensions==4.13.2
