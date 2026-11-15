@@ -1,122 +1,80 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import Login from './components/Login';
+import Navbar from './components/Navbar';
+import ResultadosTab from './components/ResultadosTab';
+import GestionUsuariosTab from './components/GestionUsuariosTab';
 
-function App() {
-  const [count, setCount] = useState(0)
+const MODULOS_PLACEHOLDER = {
+  pacientes: { titulo: 'Módulo de Pacientes', desc: 'Gestión del expediente de pacientes y muestras de bacteriología.' },
+  medicos: { titulo: 'Módulo de Médicos', desc: 'Listado de médicos remitentes.' },
+  afiliaciones: { titulo: 'Módulo de Afiliaciones', desc: 'Convenios y regímenes de afiliación.' },
+  empresas: { titulo: 'Módulo de Empresas', desc: 'Administración de empresas clientes.' },
+  examenes: { titulo: 'Módulo de Exámenes', desc: 'Catálogo de pruebas microbiológicas y de laboratorio.' },
+  plantillas: { titulo: 'Módulo de Plantillas', desc: 'Configuración de formatos de resultados.' },
+  reportes: { titulo: 'Módulo de Reportes', desc: 'Generación de estadísticas e informes clínicos.' },
+};
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('resultados');
+
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        const isExpired = decoded.exp * 1000 < Date.now();
+        if (!isExpired) {
+          setUser((decoded.username || 'USUARIO').toUpperCase());
+        } else {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+        }
+      } catch {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      }
+    }
+  }, []);
+
+  const handleLoginSuccess = (username) => {
+    setUser(username);
+    setActiveTab('resultados');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    setUser(null);
+  };
+
+  if (!user) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div>
+      <Navbar
+        username={user}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onLogout={handleLogout}
+      />
 
-      <div className="ticks"></div>
+      <main className="main-content">
+        {activeTab === 'resultados' && <ResultadosTab />}
+        {activeTab === 'gestion-usuarios' && <GestionUsuariosTab />}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {MODULOS_PLACEHOLDER[activeTab] && (
+          <div className="card">
+            <h3>{MODULOS_PLACEHOLDER[activeTab].titulo}</h3>
+            <p style={{ marginTop: '8px', color: '#555' }}>
+              {MODULOS_PLACEHOLDER[activeTab].desc}
+            </p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }
-
-export default App
