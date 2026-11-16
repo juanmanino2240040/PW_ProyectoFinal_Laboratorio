@@ -195,3 +195,4 @@ Desde el módulo **Resultados -> Importar JSON**, se pueden cargar lotes de exá
 ## Créditos
 
 Desarrollado por **Juan Manuel Niño Piña** y **Ana María Fernández Zapata** — Proyecto Final de Programación Web.
+Programa Original desarrollado por FrexLABS
