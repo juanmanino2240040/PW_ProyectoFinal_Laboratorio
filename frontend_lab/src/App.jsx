@@ -207,8 +207,11 @@ export default function App() {
       />
 
       <main className="main-content">
-        {activeTab === 'resultados' && <ResultadosTab />}
-        {activeTab === 'gestion-usuarios' && <GestionUsuariosTab />}
+        {activeTab === 'resultados' && <ResultadosTab user={user} />}
+        {activeTab === 'gestion-usuarios' && user?.rol === 'ADMIN' && <GestionUsuariosTab />}
+        {activeTab === 'gestion-usuarios' && user?.rol !== 'ADMIN' && (
+          <div className="card"><p>No tiene permisos para acceder a la gestión de usuarios.</p></div>
+        )}
 
         {activeTab === 'pacientes' && (
           <div className="card">
@@ -319,17 +322,19 @@ export default function App() {
           <div className="card">
             <div className="table-toolbar" style={{ marginBottom: '12px' }}>
               <h3 style={{ margin: 0 }}>Módulo de Reportes</h3>
-              <button
-                type="button"
-                className="btn-save"
-                onClick={() => setShowReporteForm((v) => !v)}
-              >
-                <i className="fa-solid fa-plus"></i>{' '}
-                {showReporteForm ? 'Cerrar' : 'Nuevo reporte'}
-              </button>
+              {user?.rol !== 'RECEPCION' && (
+                <button
+                  type="button"
+                  className="btn-save"
+                  onClick={() => setShowReporteForm((v) => !v)}
+                >
+                  <i className="fa-solid fa-plus"></i>{' '}
+                  {showReporteForm ? 'Cerrar' : 'Nuevo reporte'}
+                </button>
+              )}
             </div>
 
-            {showReporteForm && (
+            {showReporteForm && user?.rol !== 'RECEPCION' && (
               <form onSubmit={handleCrearReporte} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #dee2e6', borderRadius: '6px' }}>
                 <div className="form-row">
                   <div className="form-group col-4">

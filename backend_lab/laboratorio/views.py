@@ -16,6 +16,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from xhtml2pdf import pisa
 
+from usuarios.permissions import EsAdminORegistro, PermisoConsultas, PermisoPacientes, PermisoReportes, PermisoResultados
+
 from .models import Paciente, Resultado, Reporte, Consulta
 from .serializers import (
     CustomTokenObtainPairSerializer,
@@ -34,24 +36,28 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
+    # ViewSet legacy (no expuesto por rutas principales). Se mantiene restringido.
     queryset = User.objects.all().order_by('id')
     serializer_class = UsuarioSerializer
+    permission_classes = [IsAuthenticated]
 
 
 class PacienteViewSet(viewsets.ModelViewSet):
     queryset = Paciente.objects.all().order_by('apellidos', 'nombres')
     serializer_class = PacienteSerializer
+    permission_classes = [IsAuthenticated, PermisoPacientes]
 
 
 class ResultadoViewSet(viewsets.ModelViewSet):
     queryset = Resultado.objects.select_related('paciente', 'usuario_registro').all()
     serializer_class = ResultadoSerializer
+    permission_classes = [IsAuthenticated, PermisoResultados]
 
     def perform_create(self, serializer):
         serializer.save(usuario_registro=self.request.user)
 
     # CARGA MASIVA CON ARCHIVO JSON: POST /api/resultados/carga-masiva/
-    @action(detail=False, methods=['post'], url_path='carga-masiva')
+    @action(detail=False, methods=['post'], url_path='carga-masiva', permission_classes=[IsAuthenticated, EsAdminORegistro])
     def carga_masiva(self, request):
         payload = request.data
         if isinstance(payload, dict) and 'resultados' in payload:
@@ -271,6 +277,7 @@ class ResultadoViewSet(viewsets.ModelViewSet):
 class ReporteViewSet(viewsets.ModelViewSet):
     queryset = Reporte.objects.select_related('paciente', 'resultado', 'generado_por').all()
     serializer_class = ReporteSerializer
+    permission_classes = [IsAuthenticated, PermisoReportes]
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -499,6 +506,7 @@ class ReporteViewSet(viewsets.ModelViewSet):
         return ContentFile(buffer.getvalue()), filename
 
 
-class ConsultaViewSet(viewsets.ReadOnlyModelViewSet):
+class ConsultaViewSet(viewsets.ModelViewSet):
     queryset = Consulta.objects.select_related('resultado', 'resultado__paciente').all()
     serializer_class = ConsultaSerializer
+    permission_classes = [IsAuthenticated, PermisoConsultas]

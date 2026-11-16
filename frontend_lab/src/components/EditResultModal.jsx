@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function EditResultModal({ isOpen, resultado, onClose, onSave }) {
+export default function EditResultModal({ isOpen, resultado, onClose, onSave, readOnly = false }) {
   const [formData, setFormData] = useState({
     tipo_examen: '',
     estado: 'PENDIENTE',
@@ -35,6 +35,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
   };
 
   const handlePlantillaChange = (e) => {
+    if (readOnly) return;
     const value = e.target.value;
     setFormData((prev) => ({
       ...prev,
@@ -48,6 +49,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (readOnly) return;
     onSave({
       id: resultado.id,
       paciente: resultado.paciente,
@@ -66,7 +68,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
       <div className="modal-container">
         <div className="modal-header">
           <h3>
-            Editar Resultado #{formData.consecutivo} — Código Público:{' '}
+            {readOnly ? 'Ver Resultado' : 'Editar Resultado'} #{formData.consecutivo} — Código Público:{' '}
             <span style={{ color: '#0d6efd' }}>{resultado.codigo_consulta}</span>
           </h3>
           <button type="button" className="modal-close" onClick={onClose}>
@@ -85,11 +87,12 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                   value={formData.tipo_examen}
                   onChange={handleChange}
                   required
+                  disabled={readOnly}
                 />
               </div>
               <div className="form-group col-4">
                 <label>Estado:</label>
-                <select name="estado" value={formData.estado} onChange={handleChange}>
+                <select name="estado" value={formData.estado} onChange={handleChange} disabled={readOnly}>
                   <option value="PENDIENTE">PENDIENTE</option>
                   <option value="IMPRESO">IMPRESO</option>
                 </select>
@@ -108,6 +111,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                   name="medico_remitente"
                   value={formData.medico_remitente}
                   onChange={handleChange}
+                  disabled={readOnly}
                 />
               </div>
               <div className="form-group col-4">
@@ -129,6 +133,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                   value={formData.consecutivo}
                   onChange={handleChange}
                   required
+                  disabled
                 />
               </div>
               <div className="form-group col-4">
@@ -138,6 +143,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                   name="fecha_toma"
                   value={formData.fecha_toma}
                   onChange={handleChange}
+                  disabled={readOnly}
                 />
               </div>
               <div className="form-group col-5" style={{ flex: 5 }}>
@@ -147,6 +153,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                   name="detalle_examenes"
                   value={formData.detalle_examenes}
                   onChange={handleChange}
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -161,6 +168,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                 value={formData.plantilla}
                 onChange={handlePlantillaChange}
                 style={{ marginTop: '5px' }}
+                disabled={readOnly}
               >
                 <option value="Nothing selected">Nothing selected</option>
                 <option value="Plantilla Estándar Bacteriología">
@@ -176,6 +184,7 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                 name="contenido_resultado"
                 value={formData.contenido_resultado}
                 onChange={handleChange}
+                disabled={readOnly}
               ></textarea>
             </div>
           </div>
@@ -191,11 +200,13 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                 cursor: 'pointer',
               }}
             >
-              Cancelar
+              {readOnly ? 'Cerrar' : 'Cancelar'}
             </button>
-            <button type="submit" className="btn-save">
-              <i className="fa-solid fa-floppy-disk"></i> Guardar
-            </button>
+            {!readOnly && (
+              <button type="submit" className="btn-save">
+                <i className="fa-solid fa-floppy-disk"></i> Guardar
+              </button>
+            )}
           </div>
         </form>
       </div>

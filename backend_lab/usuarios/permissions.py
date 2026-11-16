@@ -39,29 +39,12 @@ class EsAdminORegistro(EsAutenticadoConRol):
         }
 
 
-class PermisoOperacionClinica(EsAutenticadoConRol):
-    """
-    Reglas para operación del laboratorio:
-    - Lectura (GET, HEAD, OPTIONS): ADMIN, RECEPCION, REGISTRO.
-    - Escritura/edición clínica (POST, PUT, PATCH, DELETE): ADMIN y REGISTRO.
-    """
-
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-
-        if request.method in SAFE_METHODS:
-            return request.user.rol in {'ADMIN', 'RECEPCION', 'REGISTRO'}
-
-        return request.user.rol in {'ADMIN', 'REGISTRO'}
-
-
 class PermisoPacientes(EsAutenticadoConRol):
     """
-    Reglas para gestión de pacientes:
-    - Lectura: todos los roles internos autenticados.
-    - Creación/edición: ADMIN y RECEPCION (y opcionalmente REGISTRO si carga masiva).
-    - Eliminación (DELETE): solo ADMIN.
+    Pacientes:
+    - Lectura: ADMIN, RECEPCION, REGISTRO.
+    - Creación/edición: ADMIN, RECEPCION, REGISTRO.
+    - Eliminación: solo ADMIN.
     """
 
     def has_permission(self, request, view):
@@ -75,3 +58,66 @@ class PermisoPacientes(EsAutenticadoConRol):
             return request.user.rol == 'ADMIN'
 
         return request.user.rol in {'ADMIN', 'RECEPCION', 'REGISTRO'}
+
+
+class PermisoResultados(EsAutenticadoConRol):
+    """
+    Resultados individuales:
+    - Lectura: ADMIN, RECEPCION, REGISTRO.
+    - Creación/edición: ADMIN, REGISTRO.
+    - Eliminación: solo ADMIN.
+    """
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+
+        if request.method in SAFE_METHODS:
+            return request.user.rol in {'ADMIN', 'RECEPCION', 'REGISTRO'}
+
+        if request.method == 'DELETE':
+            return request.user.rol == 'ADMIN'
+
+        return request.user.rol in {'ADMIN', 'REGISTRO'}
+
+
+class PermisoReportes(EsAutenticadoConRol):
+    """
+    Reportes:
+    - Lectura/descarga (GET): ADMIN, RECEPCION, REGISTRO.
+    - Generación (POST): ADMIN, REGISTRO.
+    - Eliminación (DELETE): solo ADMIN.
+    - Otras modificaciones: solo ADMIN.
+    """
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+
+        if request.method in SAFE_METHODS:
+            return request.user.rol in {'ADMIN', 'RECEPCION', 'REGISTRO'}
+
+        if request.method == 'POST':
+            return request.user.rol in {'ADMIN', 'REGISTRO'}
+
+        if request.method == 'DELETE':
+            return request.user.rol == 'ADMIN'
+
+        return request.user.rol == 'ADMIN'
+
+
+class PermisoConsultas(EsAutenticadoConRol):
+    """
+    Historial de consultas:
+    - Lectura: ADMIN, RECEPCION, REGISTRO.
+    - Escritura/eliminación: solo ADMIN.
+    """
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+
+        if request.method in SAFE_METHODS:
+            return request.user.rol in {'ADMIN', 'RECEPCION', 'REGISTRO'}
+
+        return request.user.rol == 'ADMIN'

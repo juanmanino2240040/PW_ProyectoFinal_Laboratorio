@@ -31,6 +31,9 @@ export default function Navbar({ user, activeTab, onSelectTab, onLogout }) {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState(initialPasswordForm);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileData, setProfileData] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const menuRef = useRef(null);
 
   const displayName =
@@ -51,6 +54,19 @@ export default function Navbar({ user, activeTab, onSelectTab, onLogout }) {
   const handleOptionClick = (action) => {
     setMenuOpen(false);
     action();
+  };
+
+  const handleShowProfile = async () => {
+    setLoadingProfile(true);
+    try {
+      const res = await api.get('/usuarios/me/');
+      setProfileData(res.data);
+      setShowProfileModal(true);
+    } catch (err) {
+      alert(formatApiError(err.response?.data, 'No se pudieron cargar sus datos de usuario.'));
+    } finally {
+      setLoadingProfile(false);
+    }
   };
 
   const handleExportDb = async () => {
@@ -137,15 +153,22 @@ export default function Navbar({ user, activeTab, onSelectTab, onLogout }) {
             <button onClick={() => handleOptionClick(onLogout)}>
               <i className="fa-solid fa-sign-out-alt"></i> Cerrar sesión
             </button>
+            <button onClick={() => handleOptionClick(handleShowProfile)} disabled={loadingProfile}>
+              <i className="fa-solid fa-id-card"></i> {loadingProfile ? 'Cargando...' : 'Mis datos'}
+            </button>
             <button onClick={() => handleOptionClick(() => setShowPasswordModal(true))}>
               <i className="fa-solid fa-key"></i> Cambio de contraseña
             </button>
-            <button onClick={() => handleOptionClick(handleExportDb)}>
-              <i className="fa-solid fa-database"></i> Copia de seguridad
-            </button>
-            <button onClick={() => handleOptionClick(() => onSelectTab('gestion-usuarios'))}>
-              <i className="fa-solid fa-users-cog"></i> Gestión de usuario
-            </button>
+            {user?.rol === 'ADMIN' && (
+              <>
+                <button onClick={() => handleOptionClick(handleExportDb)}>
+                  <i className="fa-solid fa-database"></i> Copia de seguridad
+                </button>
+                <button onClick={() => handleOptionClick(() => onSelectTab('gestion-usuarios'))}>
+                  <i className="fa-solid fa-users-cog"></i> Gestión de usuario
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -208,6 +231,44 @@ export default function Navbar({ user, activeTab, onSelectTab, onLogout }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showProfileModal && (
+        <div className="modal-overlay" onClick={() => setShowProfileModal(false)}>
+          <div className="modal-container" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Mis datos de usuario</h3>
+              <button type="button" className="modal-close" onClick={() => setShowProfileModal(false)}>
+                &times;
+              </button>
+            </div>
+            <div className="modal-body" style={{ color: '#212529' }}>
+              {profileData ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
+                  <div><strong>Usuario:</strong><br /><span>{profileData.username || '-'}</span></div>
+                  <div><strong>Rol:</strong><br /><span>{profileData.rol_display || profileData.rol || '-'}</span></div>
+                  <div><strong>Nombre:</strong><br /><span>{profileData.first_name || '-'}</span></div>
+                  <div><strong>Apellido:</strong><br /><span>{profileData.last_name || '-'}</span></div>
+                  <div><strong>Correo:</strong><br /><span>{profileData.email || '-'}</span></div>
+                  <div><strong>Documento:</strong><br /><span>{profileData.documento || '-'}</span></div>
+                  <div><strong>Cargo:</strong><br /><span>{profileData.cargo || '-'}</span></div>
+                  <div><strong>Teléfono:</strong><br /><span>{profileData.telefono || '-'}</span></div>
+                  <div><strong>Activo:</strong><br /><span>{profileData.is_active ? 'Sí' : 'No'}</span></div>
+                  <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#6c757d' }}>
+                    Datos obtenidos desde <code>/api/usuarios/me/</code>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: '#212529' }}>No hay datos disponibles.</p>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-save" onClick={() => setShowProfileModal(false)}>
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

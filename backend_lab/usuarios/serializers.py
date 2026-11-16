@@ -79,8 +79,10 @@ class PerfilUsuarioSerializer(serializers.ModelSerializer):
             'last_name',
             'documento',
             'cargo',
+            'telefono',
             'rol',
             'rol_display',
+            'is_active',
         ]
         read_only_fields = fields
 

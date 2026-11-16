@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from .permissions import EsAdmin
@@ -17,9 +17,13 @@ Usuario = get_user_model()
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
+    """
+    Gestión de usuarios (solo ADMIN).
+    Excepciones para usuario autenticado: /me/, /cambiar-password/, /exportar-db/.
+    """
     queryset = Usuario.objects.all().order_by('username')
     serializer_class = UsuarioSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, EsAdmin]
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
@@ -43,7 +47,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         user.save()
         return Response({'detail': 'Contraseña actualizada correctamente.'}, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['get'], url_path='exportar-db', permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'], url_path='exportar-db', permission_classes=[IsAuthenticated, EsAdmin])
     def exportar_db(self, request):
         db = settings.DATABASES.get('default', {})
         engine = db.get('ENGINE', '')

@@ -44,7 +44,11 @@ const initialNuevoResultado = {
   contenido_resultado: '',
 };
 
-export default function ResultadosTab() {
+export default function ResultadosTab({ user }) {
+  const rol = user?.rol;
+  const canWrite = rol === 'ADMIN' || rol === 'REGISTRO';
+  const canDelete = rol === 'ADMIN';
+  const canCargaMasiva = rol === 'ADMIN' || rol === 'REGISTRO';
   const [resultados, setResultados] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [busqueda, setBusqueda] = useState('');
@@ -194,42 +198,48 @@ export default function ResultadosTab() {
         <h3>Gestión de Resultados</h3>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="btn-save"
-            onClick={() => setShowCreate((v) => !v)}
-          >
-            <i className="fa-solid fa-plus"></i>{' '}
-            {showCreate ? 'Cerrar' : 'Nuevo resultado'}
-          </button>
+          {canWrite && (
+            <button
+              type="button"
+              className="btn-save"
+              onClick={() => setShowCreate((v) => !v)}
+            >
+              <i className="fa-solid fa-plus"></i>{' '}
+              {showCreate ? 'Cerrar' : 'Nuevo resultado'}
+            </button>
+          )}
 
-          <input
-            type="file"
-            accept=".json,application/json"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current.click()}
-            disabled={importando}
-            style={{
-              backgroundColor: '#198754',
-              color: 'white',
-              border: 'none',
-              padding: '7px 14px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <i className="fa-solid fa-file-import"></i>
-            {importando ? 'Importando...' : 'Importar JSON'}
-          </button>
+          {canCargaMasiva && (
+            <>
+              <input
+                type="file"
+                accept=".json,application/json"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current.click()}
+                disabled={importando}
+                style={{
+                  backgroundColor: '#198754',
+                  color: 'white',
+                  border: 'none',
+                  padding: '7px 14px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <i className="fa-solid fa-file-import"></i>
+                {importando ? 'Importando...' : 'Importar JSON'}
+              </button>
+            </>
+          )}
 
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <label>Buscar:</label>
@@ -244,7 +254,7 @@ export default function ResultadosTab() {
         </div>
       </div>
 
-      {showCreate && (
+      {showCreate && canWrite && (
         <form onSubmit={handleCreate} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #dee2e6', borderRadius: '6px' }}>
           <div className="form-row">
             <div className="form-group col-4">
@@ -390,20 +400,24 @@ export default function ResultadosTab() {
                         <div className="btn-group">
                           <button
                             className="btn-action edit"
+                            title={canWrite ? 'Editar resultado' : 'Ver resultado'}
                             onClick={() => {
                               setSelectedResultado(item);
                               setModalOpen(true);
                             }}
                           >
-                            <i className="fa-solid fa-pen-to-square"></i>
+                            <i className={`fa-solid ${canWrite ? 'fa-pen-to-square' : 'fa-eye'}`}></i>
                           </button>
-                          <button
-                            className="btn-action delete"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            <i className="fa-solid fa-trash"></i>
-                          </button>
-                          <button className="btn-action print" onClick={() => window.print()}>
+                          {canDelete && (
+                            <button
+                              className="btn-action delete"
+                              title="Eliminar resultado"
+                              onClick={() => handleDelete(item.id)}
+                            >
+                              <i className="fa-solid fa-trash"></i>
+                            </button>
+                          )}
+                          <button className="btn-action print" title="Imprimir" onClick={() => window.print()}>
                             <i className="fa-solid fa-print"></i>
                           </button>
                         </div>
@@ -447,6 +461,7 @@ export default function ResultadosTab() {
         resultado={selectedResultado}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
+        readOnly={!canWrite}
       />
     </div>
   );
