@@ -1,157 +1,182 @@
+from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils.dateparse import parse_datetime, parse_date
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from usuarios.permissions import EsAutenticadoConRol, PermisoOperacionClinica, PermisoPacientes
-
-from .models import Consulta, Paciente, Reporte, Resultado
+from .models import Paciente, Resultado, Reporte, Consulta
 from .serializers import (
-    ConsultaAuditoriaSerializer,
-    ConsultaPublicaRequestSerializer,
-    ConsultaPublicaResponseSerializer,
+    CustomTokenObtainPairSerializer,
+    UsuarioSerializer,
     PacienteSerializer,
-    ReporteSerializer,
-    ResultadoCargaMasivaLoteSerializer,
     ResultadoSerializer,
+    ReporteSerializer,
+    ConsultaSerializer,
 )
+
+User = get_user_model()
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+
+class UsuarioViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all().order_by('id')
+    serializer_class = UsuarioSerializer
 
 
 class PacienteViewSet(viewsets.ModelViewSet):
-    queryset = Paciente.objects.all()
+    queryset = Paciente.objects.all().order_by('apellidos', 'nombres')
     serializer_class = PacienteSerializer
-    permission_classes = [AllowAny]
-    search_fields = ['documento', 'nombres', 'apellidos', 'empresa']
-    ordering_fields = ['apellidos', 'fecha_registro', 'documento']
 
 
 class ResultadoViewSet(viewsets.ModelViewSet):
     queryset = Resultado.objects.select_related('paciente', 'usuario_registro').all()
     serializer_class = ResultadoSerializer
-    permission_classes = [AllowAny]
 
-    @action(detail=False, methods=['post'], url_path='carga-masiva')
-    def carga_masiva(self, request):
-        """Recibe un JSON con {'resultados': [...]} y crea pacientes + resultados en lote."""
-        lote_serializer = ResultadoCargaMasivaLoteSerializer(data=request.data)
-        lote_serializer.is_valid(raise_exception=True)
+    def perform_create(self, serializer):
+        serializer.save(usuario_registro=self.request.user)
 
-        items = lote_serializer.validated_data['resultados']
-        creados = []
+    # CARGA MASIVA CON ARCHIVO JSON: POST /api/resultados/importar-json/
+    @action(detail=False, methods=['post'], url_path='importar-json')
+    def importar_json(self, request):
+        registros = request.data
+        if not isinstance(registros, list):
+            return Response(
+                {'error': 'El archivo JSON debe ser un arreglo [...] de resultados.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        creados = 0
+        actualizados = 0
+        errores = []
 
         with transaction.atomic():
-            for item in items:
+            for idx, item in enumerate(registros, start=1):
+                documento = str(item.get('documento', '')).strip()
+                consecutivo = str(item.get('consecutivo', '')).strip()
+                tipo_examen = str(item.get('tipo_examen', '')).strip().upper()
+
+                if not documento or not consecutivo or not tipo_examen:
+                    errores.append(
+                        f"Registro #{idx}: Faltan campos obligatorios (documento, consecutivo o tipo_examen)."
+                    )
+                    continue
+
+                fecha_nac = parse_date(str(item.get('fecha_nacimiento', '1990-01-01'))) or parse_date('1990-01-01')
+
                 paciente, _ = Paciente.objects.get_or_create(
-                    documento=item['paciente_documento'].strip(),
+                    documento=documento,
                     defaults={
-                        'tipo_documento': item['paciente_tipo_documento'],
-                        'nombres': item['paciente_nombres'].strip(),
-                        'apellidos': item['paciente_apellidos'].strip(),
-                        'fecha_nacimiento': item['paciente_fecha_nacimiento'],
-                        'sexo': item['paciente_sexo'],
-                        'telefono': item.get('paciente_telefono'),
-                        'correo': item.get('paciente_correo'),
-                        'afiliacion': item['paciente_afiliacion'],
-                        'empresa': item['paciente_empresa'],
-                    },
+                        'tipo_documento': item.get('tipo_documento', 'CC'),
+                        'nombres': str(item.get('nombres', 'SIN NOMBRE')).strip().upper(),
+                        'apellidos': str(item.get('apellidos', 'SIN APELLIDO')).strip().upper(),
+                        'fecha_nacimiento': fecha_nac,
+                        'sexo': item.get('sexo', 'M'),
+                        'telefono': item.get('telefono', ''),
+                        'correo': item.get('correo', ''),
+                        'direccion': item.get('direccion', ''),
+                        'afiliacion': item.get('afiliacion', 'PARTICULAR'),
+                        'empresa': item.get('empresa', 'PARTICULAR'),
+                    }
                 )
 
-                resultado = Resultado.objects.create(
-                    consecutivo=item['consecutivo'].strip(),
-                    paciente=paciente,
-                    usuario_registro=request.user if request.user.is_authenticated else None,
-                    tipo_examen=item['tipo_examen'].strip(),
-                    medico_remitente=item['medico_remitente'],
-                    estado=item['estado'],
-                    fecha_toma=item.get('fecha_toma') or timezone.now(),
-                    detalle_examenes=item.get('detalle_examenes'),
-                    contenido_resultado=item.get('contenido_resultado'),
-                    parametros_json=item.get('parametros_json', {}),
-                )
-                creados.append(resultado)
+                fecha_toma_raw = item.get('fecha_toma')
+                fecha_toma = parse_datetime(str(fecha_toma_raw)) if fecha_toma_raw else timezone.now()
+                if fecha_toma is None:
+                    fecha_toma = timezone.now()
 
-        data = ResultadoSerializer(creados, many=True, context={'request': request}).data
-        return Response(
-            {'total_creados': len(creados), 'resultados': data},
-            status=status.HTTP_201_CREATED,
+                _, created = Resultado.objects.update_or_create(
+                    consecutivo=consecutivo,
+                    defaults={
+                        'paciente': paciente,
+                        'usuario_registro': request.user if request.user.is_authenticated else None,
+                        'tipo_examen': tipo_examen,
+                        'medico_remitente': item.get('medico_remitente', 'PARTICULAR'),
+                        'estado': item.get('estado', 'PENDIENTE'),
+                        'fecha_toma': fecha_toma,
+                        'detalle_examenes': item.get('detalle_examenes', ''),
+                        'contenido_resultado': item.get('contenido_resultado', ''),
+                        'parametros_json': item.get('parametros_json', {}),
+                    }
+                )
+                if created:
+                    creados += 1
+                else:
+                    actualizados += 1
+
+        return Response({
+            'mensaje': f'Proceso completado: {creados} creados, {actualizados} actualizados.',
+            'creados': creados,
+            'actualizados': actualizados,
+            'errores': errores
+        }, status=status.HTTP_201_CREATED)
+
+    # PORTAL PÚBLICO DE PACIENTES: POST /api/resultados/consulta-publica/
+    @action(detail=False, methods=['post'], url_path='consulta-publica', permission_classes=[AllowAny])
+    def consulta_publica(self, request):
+        documento = str(request.data.get('documento', '')).strip()
+        codigo = str(request.data.get('codigo_consulta', '')).strip().upper()
+        ip_cliente = request.META.get('REMOTE_ADDR')
+
+        if not documento or not codigo:
+            return Response(
+                {'error': 'Debe ingresar el número de documento y el código de consulta.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        resultado = Resultado.objects.select_related('paciente').filter(
+            paciente__documento=documento,
+            codigo_consulta=codigo
+        ).first()
+
+        if not resultado:
+            # Si existe el documento, asociamos el intento fallido a su último resultado para auditoría
+            ultimo_res = Resultado.objects.filter(paciente__documento=documento).first()
+            if ultimo_res:
+                Consulta.objects.create(
+                    resultado=ultimo_res,
+                    documento_consultado=documento,
+                    codigo_ingresado=codigo,
+                    ip_origen=ip_cliente,
+                    exitosa=False
+                )
+            return Response(
+                {'error': 'No se encontró ningún resultado con ese documento y código de consulta.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Registrar consulta exitosa en el modelo Consulta
+        Consulta.objects.create(
+            resultado=resultado,
+            documento_consultado=documento,
+            codigo_ingresado=codigo,
+            ip_origen=ip_cliente,
+            exitosa=True
         )
+
+        # Devolver todos los resultados del paciente o el resultado específico consultado
+        todos_resultados = Resultado.objects.filter(paciente=resultado.paciente).order_by('-fecha_toma')
+        return Response({
+            'paciente': PacienteSerializer(resultado.paciente).data,
+            'resultado_consultado': ResultadoSerializer(resultado).data,
+            'historial': ResultadoSerializer(todos_resultados, many=True).data
+        }, status=status.HTTP_200_OK)
 
 
 class ReporteViewSet(viewsets.ModelViewSet):
     queryset = Reporte.objects.select_related('paciente', 'resultado', 'generado_por').all()
     serializer_class = ReporteSerializer
-    # permission_classes = [EsAutenticadoConRol]
-    permission_classes = [AllowAny]
 
     def perform_create(self, serializer):
         serializer.save(generado_por=self.request.user)
 
 
-class ConsultaAuditoriaViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Consulta.objects.select_related('resultado').all()
-    serializer_class = ConsultaAuditoriaSerializer
-    permission_classes = [AllowAny]
-
-
-class ConsultaPublicaView(APIView):
-    """Endpoint público para que el paciente consulte su resultado validado."""
-    permission_classes = [AllowAny]
-    authentication_classes = []
-
-    def get_client_ip(self, request):
-        xff = request.META.get('HTTP_X_FORWARDED_FOR')
-        if xff:
-            return xff.split(',')[0].strip()
-        return request.META.get('REMOTE_ADDR')
-
-    def post(self, request):
-        serializer = ConsultaPublicaRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        documento = serializer.validated_data['documento'].strip()
-        codigo = serializer.validated_data['codigo_consulta'].strip().upper()
-        fecha_nac = serializer.validated_data['fecha_nacimiento']
-        ip = self.get_client_ip(request)
-
-        resultado = (
-            Resultado.objects.select_related('paciente')
-            .filter(
-                paciente__documento=documento,
-                codigo_consulta=codigo,
-                paciente__fecha_nacimiento=fecha_nac,
-            )
-            .first()
-        )
-
-        if not resultado:
-            return Response(
-                {'detail': 'No se encontró un resultado con los datos ingresados.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if resultado.estado != Resultado.Estado.IMPRESO:
-            Consulta.objects.create(
-                resultado=resultado,
-                documento_consultado=documento,
-                codigo_ingresado=codigo,
-                ip_origen=ip,
-                exitosa=False,
-            )
-            return Response(
-                {'detail': 'El resultado aún no ha sido validado o impreso por el laboratorio.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        Consulta.objects.create(
-            resultado=resultado,
-            documento_consultado=documento,
-            codigo_ingresado=codigo,
-            ip_origen=ip,
-            exitosa=True,
-        )
-
-        payload = ConsultaPublicaResponseSerializer(resultado).data
-        return Response(payload, status=status.HTTP_200_OK)
+class ConsultaViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Consulta.objects.select_related('resultado', 'resultado__paciente').all()
+    serializer_class = ConsultaSerializer

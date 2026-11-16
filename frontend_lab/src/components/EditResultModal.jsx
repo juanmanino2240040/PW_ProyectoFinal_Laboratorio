@@ -2,40 +2,32 @@ import { useState, useEffect } from 'react';
 
 export default function EditResultModal({ isOpen, resultado, onClose, onSave }) {
   const [formData, setFormData] = useState({
-    tipoExamen: 'GLICEMIA',
-    estado: 'IMPRESO',
-    paciente: '',
-    medico: 'PARTICULAR',
-    afiliacion: 'PARTICULAR',
-    empresa: 'PARTICULAR',
+    tipo_examen: '',
+    estado: 'PENDIENTE',
+    medico_remitente: 'PARTICULAR',
     consecutivo: '',
-    fecha: '2025-05-05',
-    examenesDetalle: '',
-    valorGlicemia: '103 mg/dL',
+    fecha_toma: '',
+    detalle_examenes: '',
+    contenido_resultado: '',
     plantilla: 'Nothing selected',
-    observaciones: '',
   });
 
   useEffect(() => {
     if (resultado) {
       setFormData({
-        tipoExamen: resultado.examen || 'GLICEMIA',
+        tipo_examen: resultado.tipo_examen || 'QUÍMICA SANGUÍNEA',
         estado: resultado.estado || 'PENDIENTE',
-        paciente: resultado.paciente || '',
-        medico: resultado.medico || 'PARTICULAR',
-        afiliacion: resultado.afiliacion || 'PARTICULAR',
-        empresa: resultado.empresa || 'PARTICULAR',
+        medico_remitente: resultado.medico_remitente || 'PARTICULAR',
         consecutivo: resultado.consecutivo || '',
-        fecha: resultado.fecha || '2025-05-05',
-        examenesDetalle: resultado.examenesDetalle || '',
-        valorGlicemia: resultado.valorGlicemia || '103 mg/dL',
+        fecha_toma: resultado.fecha_toma ? resultado.fecha_toma.slice(0, 16) : '',
+        detalle_examenes: resultado.detalle_examenes || '',
+        contenido_resultado: resultado.contenido_resultado || '',
         plantilla: 'Nothing selected',
-        observaciones: resultado.observaciones || '',
       });
     }
   }, [resultado]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !resultado) return null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -47,23 +39,36 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
     setFormData((prev) => ({
       ...prev,
       plantilla: value,
-      observaciones:
+      contenido_resultado:
         value === 'Plantilla Estándar Bacteriología'
-          ? 'MUESTRA: \nTINCIÓN DE GRAM: \nCULTIVO: \nANTIBIOGRAMA: '
-          : prev.observaciones,
+          ? 'MUESTRA: \nTINCIÓN DE GRAM: \nCULTIVO: \nRECUENTO DE COLONIAS: \nANTIBIOGRAMA: '
+          : prev.contenido_resultado,
     }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ ...resultado, ...formData });
+    onSave({
+      id: resultado.id,
+      paciente: resultado.paciente,
+      consecutivo: formData.consecutivo,
+      tipo_examen: formData.tipo_examen,
+      medico_remitente: formData.medico_remitente,
+      estado: formData.estado,
+      fecha_toma: formData.fecha_toma,
+      detalle_examenes: formData.detalle_examenes,
+      contenido_resultado: formData.contenido_resultado,
+    });
   };
 
   return (
     <div className="modal-overlay">
       <div className="modal-container">
         <div className="modal-header">
-          <h3>Editar Resultado</h3>
+          <h3>
+            Editar Resultado #{formData.consecutivo} — Código Público:{' '}
+            <span style={{ color: '#0d6efd' }}>{resultado.codigo_consulta}</span>
+          </h3>
           <button type="button" className="modal-close" onClick={onClose}>
             &times;
           </button>
@@ -74,46 +79,44 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
             <div className="form-row">
               <div className="form-group col-4">
                 <label>* Tipo de examen:</label>
-                <select name="tipoExamen" value={formData.tipoExamen} onChange={handleChange}>
-                  <option value="QUÍMICA SANGUÍNEA">QUÍMICA SANGUÍNEA</option>
-                  <option value="GLICEMIA">GLICEMIA</option>
-                  <option value="CULTIVO DE ORINA / UROCULTIVO">CULTIVO DE ORINA / UROCULTIVO</option>
-                  <option value="COPROCULTIVO">COPROCULTIVO</option>
-                  <option value="AMIGDALAR">AMIGDALAR</option>
-                </select>
+                <input
+                  type="text"
+                  name="tipo_examen"
+                  value={formData.tipo_examen}
+                  onChange={handleChange}
+                  required
+                />
               </div>
               <div className="form-group col-4">
                 <label>Estado:</label>
                 <select name="estado" value={formData.estado} onChange={handleChange}>
-                  <option value="IMPRESO">IMPRESO</option>
                   <option value="PENDIENTE">PENDIENTE</option>
-                  <option value="EN PROCESO">EN PROCESO</option>
+                  <option value="IMPRESO">IMPRESO</option>
                 </select>
               </div>
               <div className="form-group col-4">
-                <label>* Paciente:</label>
-                <input
-                  type="text"
-                  name="paciente"
-                  value={formData.paciente}
-                  onChange={handleChange}
-                  required
-                />
+                <label>Paciente:</label>
+                <input type="text" value={resultado.paciente_display || ''} disabled />
               </div>
             </div>
 
             <div className="form-row">
               <div className="form-group col-4">
-                <label>Médico:</label>
-                <input type="text" name="medico" value={formData.medico} onChange={handleChange} />
+                <label>Médico remitente:</label>
+                <input
+                  type="text"
+                  name="medico_remitente"
+                  value={formData.medico_remitente}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group col-4">
                 <label>Afiliación:</label>
-                <input type="text" name="afiliacion" value={formData.afiliacion} onChange={handleChange} />
+                <input type="text" value={resultado.paciente_afiliacion || ''} disabled />
               </div>
               <div className="form-group col-4">
                 <label>Empresa:</label>
-                <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} />
+                <input type="text" value={resultado.paciente_empresa || ''} disabled />
               </div>
             </div>
 
@@ -128,36 +131,30 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                   required
                 />
               </div>
-              <div className="form-group col-3">
-                <label>Fecha:</label>
-                <input type="date" name="fecha" value={formData.fecha} onChange={handleChange} />
+              <div className="form-group col-4">
+                <label>Fecha y hora de toma:</label>
+                <input
+                  type="datetime-local"
+                  name="fecha_toma"
+                  value={formData.fecha_toma}
+                  onChange={handleChange}
+                />
               </div>
-              <div className="form-group col-6">
-                <label>Exámenes:</label>
+              <div className="form-group col-5" style={{ flex: 5 }}>
+                <label>Detalle de exámenes:</label>
                 <input
                   type="text"
-                  name="examenesDetalle"
-                  placeholder="Detalle de exámenes..."
-                  value={formData.examenesDetalle}
+                  name="detalle_examenes"
+                  value={formData.detalle_examenes}
                   onChange={handleChange}
                 />
               </div>
             </div>
 
             <div className="form-group">
-              <label style={{ fontWeight: 'bold', color: '#212529' }}>Glicemia</label>
-              <input
-                type="text"
-                name="valorGlicemia"
-                value={formData.valorGlicemia}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="form-group">
               <label>Plantilla</label>
               <span className="alert-banner">
-                Al seleccionar una nueva plantilla, los datos en el campo Resultado/Otros serán formateados con los de la plantilla
+                Al seleccionar una plantilla se formateará el contenido del resultado
               </span>
               <select
                 name="plantilla"
@@ -166,17 +163,18 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
                 style={{ marginTop: '5px' }}
               >
                 <option value="Nothing selected">Nothing selected</option>
-                <option value="Plantilla Estándar Bacteriología">Plantilla Estándar Bacteriología</option>
+                <option value="Plantilla Estándar Bacteriología">
+                  Plantilla Estándar Bacteriología
+                </option>
               </select>
             </div>
 
             <div className="form-group">
-              <label style={{ fontWeight: 'bold' }}>Resultados</label>
+              <label style={{ fontWeight: 'bold' }}>Contenido del Resultado</label>
               <textarea
                 className="editor-area"
-                name="observaciones"
-                placeholder="Escriba los detalles microbiológicos u observaciones aquí..."
-                value={formData.observaciones}
+                name="contenido_resultado"
+                value={formData.contenido_resultado}
                 onChange={handleChange}
               ></textarea>
             </div>
@@ -186,7 +184,12 @@ export default function EditResultModal({ isOpen, resultado, onClose, onSave }) 
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: '8px 14px', borderRadius: '4px', border: '1px solid #ccc', cursor: 'pointer' }}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                cursor: 'pointer',
+              }}
             >
               Cancelar
             </button>

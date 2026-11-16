@@ -1,21 +1,20 @@
-from django.urls import include, path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-
 from .views import (
-    ConsultaAuditoriaViewSet,
-    ConsultaPublicaView,
+    UsuarioViewSet,
     PacienteViewSet,
-    ReporteViewSet,
     ResultadoViewSet,
+    ReporteViewSet,
+    ConsultaViewSet,
 )
 
 router = DefaultRouter()
+router.register(r'usuarios', UsuarioViewSet, basename='usuario')
 router.register(r'pacientes', PacienteViewSet, basename='paciente')
 router.register(r'resultados', ResultadoViewSet, basename='resultado')
 router.register(r'reportes', ReporteViewSet, basename='reporte')
-router.register(r'auditoria-consultas', ConsultaAuditoriaViewSet, basename='auditoria-consulta')
+router.register(r'consultas', ConsultaViewSet, basename='consulta')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('consulta-publica/', ConsultaPublicaView.as_view(), name='consulta-publica'),
 ]
