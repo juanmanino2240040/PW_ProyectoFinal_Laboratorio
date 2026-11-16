@@ -1,0 +1,119 @@
+[
+  {
+    "consecutivo": "101",
+    "tipo_documento": "CC",
+    "documento": "91230146",
+    "nombres": "JHON GABINO",
+    "apellidos": "PINZON POF",
+    "fecha_nacimiento": "1985-04-12",
+    "sexo": "M",
+    "telefono": "3154829103",
+    "correo": "jhon.pinzon@correo.com",
+    "direccion": "Calle 36 # 19-45, Centro",
+    "afiliacion": "PARTICULAR",
+    "empresa": "PARTICULAR",
+    "tipo_examen": "QUÍMICA SANGUÍNEA",
+    "medico_remitente": "PARTICULAR",
+    "estado": "IMPRESO",
+    "fecha_toma": "2026-11-16T08:30:00Z",
+    "detalle_examenes": "Glicemia basal en suero",
+    "contenido_resultado": "GLICEMIA BASAL: 103 mg/dL (Rango de referencia: 70 - 100 mg/dL)\nMÉTODO: Enzimático colorimétrico.",
+    "parametros_json": {
+      "glicemia": "103 mg/dL",
+      "observacion": "Ligeramente elevado"
+    }
+  },
+  {
+    "consecutivo": "102",
+    "tipo_documento": "CC",
+    "documento": "10987654",
+    "nombres": "MARIA FERNANDA",
+    "apellidos": "RODRIGUEZ GOMEZ",
+    "fecha_nacimiento": "1994-08-22",
+    "sexo": "F",
+    "telefono": "3007654321",
+    "correo": "maria.rodriguez@correo.com",
+    "direccion": "Carrera 27 # 52-18",
+    "afiliacion": "CONTRIBUTIVO",
+    "empresa": "SURA EPS",
+    "tipo_examen": "CULTIVO DE ORINA / UROCULTIVO",
+    "medico_remitente": "DR. CARLOS MENDOZA",
+    "estado": "IMPRESO",
+    "fecha_toma": "2026-11-16T09:15:00Z",
+    "detalle_examenes": "Urocultivo + Antibiograma",
+    "contenido_resultado": "MUESTRA: Orina micción espontánea.\nRECUENTO DE COLONIAS: > 100.000 UFC/mL.\nGERMEN AISLADO: Escherichia coli.\nANTIBIOGRAMA: Sensible a Nitrofurantoína, Fosfomicina, Ciprofloxacina.",
+    "parametros_json": {
+      "muestra": "Orina",
+      "germen": "Escherichia coli"
+    }
+  },
+  {
+    "consecutivo": "103",
+    "tipo_documento": "TI",
+    "documento": "1095832110",
+    "nombres": "SANTIAGO",
+    "apellidos": "PEREZ SALAZAR",
+    "fecha_nacimiento": "2012-02-14",
+    "sexo": "M",
+    "telefono": "3112233445",
+    "correo": "acudiente.perez@correo.com",
+    "direccion": "Av. Quebradaseca # 30-12",
+    "afiliacion": "SUBSIDIADO",
+    "empresa": "NUEVA EPS",
+    "tipo_examen": "COPROCULTIVO",
+    "medico_remitente": "DRA. LAURA MANTILLA",
+    "estado": "PENDIENTE",
+    "fecha_toma": "2026-11-16T10:05:00Z",
+    "detalle_examenes": "Coprocultivo y coprológico directo",
+    "contenido_resultado": "",
+    "parametros_json": {
+      "muestra": "Materia fecal"
+    }
+  },
+  {
+    "consecutivo": "104",
+    "tipo_documento": "CE",
+    "documento": "4589210",
+    "nombres": "VALERIA",
+    "apellidos": "CASTELLANOS RUIZ",
+    "fecha_nacimiento": "1990-11-03",
+    "sexo": "F",
+    "telefono": "3209876543",
+    "correo": "v.castellanos@correo.com",
+    "direccion": "Calle 48 # 33-20, Cabecera",
+    "afiliacion": "PREPAGADA",
+    "empresa": "COLSANITAS",
+    "tipo_examen": "CULTIVO FARÍNGEO / AMIGDALAR",
+    "medico_remitente": "DR. ANDRES SILVA",
+    "estado": "IMPRESO",
+    "fecha_toma": "2026-11-16T10:20:00Z",
+    "detalle_examenes": "Frotis y cultivo de secreción amigdalina",
+    "contenido_resultado": "TINCIÓN DE GRAM: Moderados leucocitos polimorfonucleares, flora bacteriana mixta.\nCULTIVO: Flora respiratoria normal. Negativo para Streptococcus pyogenes.",
+    "parametros_json": {
+      "muestra": "Secreción amigdalina"
+    }
+  },
+  {
+    "consecutivo": "105",
+    "tipo_documento": "CC",
+    "documento": "63512890",
+    "nombres": "LUZ MARINA",
+    "apellidos": "CACERES DE ORTIZ",
+    "fecha_nacimiento": "1962-06-30",
+    "sexo": "F",
+    "telefono": "3185544332",
+    "correo": "luzmarina62@correo.com",
+    "direccion": "Carrera 15 # 10-40",
+    "afiliacion": "CONTRIBUTIVO",
+    "empresa": "SANITAS EPS",
+    "tipo_examen": "HEMOGLOBINA GLICOSILADA (HbA1c)",
+    "medico_remitente": "DR. JORGE RUEDA",
+    "estado": "PENDIENTE",
+    "fecha_toma": "2026-11-16T10:28:00Z",
+    "detalle_examenes": "Control metabólico trimestral",
+    "contenido_resultado": "",
+    "parametros_json": {
+      "ayuno": "Sí (10 horas)"
+    }
+  }
+]
