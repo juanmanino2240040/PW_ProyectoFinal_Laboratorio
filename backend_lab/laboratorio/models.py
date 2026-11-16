@@ -1,7 +1,7 @@
 import secrets
 import string
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from simple_history.models import HistoricalRecords
 
 
@@ -9,6 +9,18 @@ def generar_codigo_consulta():
     """Genera un código alfanumérico único de 8 caracteres para el portal público."""
     caracteres = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(caracteres) for _ in range(8))
+
+
+def generar_consecutivo_resultado():
+    """Genera un consecutivo único y consecutivo para resultados."""
+    with transaction.atomic():
+        ultimo = Resultado.objects.select_for_update().order_by('-id').first()
+        siguiente = (ultimo.id + 1) if ultimo else 1
+        while True:
+            consecutivo = f"R-{siguiente:06d}"
+            if not Resultado.objects.filter(consecutivo=consecutivo).exists():
+                return consecutivo
+            siguiente += 1
 
 
 class Paciente(models.Model):
@@ -98,6 +110,11 @@ class Resultado(models.Model):
         verbose_name = 'Resultado'
         verbose_name_plural = 'Resultados'
         ordering = ['-fecha_toma']
+
+    def save(self, *args, **kwargs):
+        if not self.consecutivo:
+            self.consecutivo = generar_consecutivo_resultado()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"#{self.consecutivo} | {self.tipo_examen} - {self.paciente.documento}"

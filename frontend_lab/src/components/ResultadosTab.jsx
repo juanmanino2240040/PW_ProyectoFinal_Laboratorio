@@ -1,13 +1,58 @@
 import { useState, useEffect, useRef } from 'react';
-import api from '../api/axiosconfig';
+import api from '../api/axiosConfig';
 import EditResultModal from './EditResultModal';
+
+const TIPOS_EXAMEN = [
+  {
+    value: 'GLICEMIA',
+    label: 'Glicemia Basal',
+    plantilla: 'GLICEMIA EN SUERO:\nVALOR DE REFERENCIA: 70 - 100 mg/dL',
+  },
+  {
+    value: 'CUADRO HEMATICO',
+    label: 'Cuadro Hemático (Hemograma)',
+    plantilla:
+      'HEMOGLOBINA:\nHEMATOCRITO:\nLEUCOCITOS:\nPLAQUETAS:\nOBSERVACIONES:',
+  },
+  {
+    value: 'PARCIAL DE ORINA',
+    label: 'Parcial de Orina',
+    plantilla:
+      'COLOR:\nASPECTO:\nPH:\nDENSIDAD:\nLEUCOCITOS:\nBACTERIAS:',
+  },
+  {
+    value: 'PERFIL LIPIDICO',
+    label: 'Perfil Lipídico',
+    plantilla:
+      'COLESTEROL TOTAL:\nHDL:\nLDL:\nTRIGLICÉRIDOS:',
+  },
+  {
+    value: 'UROCULTIVO',
+    label: 'Urocultivo y Antibiograma',
+    plantilla:
+      'MUESTRA:\nTINCIÓN DE GRAM:\nCULTIVO:\nRECUENTO DE COLONIAS:\nANTIBIOGRAMA:',
+  },
+];
+
+const initialNuevoResultado = {
+  paciente: '',
+  tipo_examen: '',
+  medico_remitente: 'PARTICULAR',
+  estado: 'PENDIENTE',
+  fecha_toma: '',
+  detalle_examenes: '',
+  contenido_resultado: '',
+};
 
 export default function ResultadosTab() {
   const [resultados, setResultados] = useState([]);
+  const [pacientes, setPacientes] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   const [selectedResultado, setSelectedResultado] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [nuevoResultado, setNuevoResultado] = useState(initialNuevoResultado);
   const fileInputRef = useRef(null);
 
   const fetchResultados = async () => {
@@ -19,9 +64,24 @@ export default function ResultadosTab() {
     }
   };
 
+  const fetchPacientes = async () => {
+    try {
+      const res = await api.get('/pacientes/');
+      setPacientes(res.data);
+    } catch (err) {
+      console.error('Error al cargar pacientes:', err);
+    }
+  };
+
   useEffect(() => {
     fetchResultados();
   }, []);
+
+  useEffect(() => {
+    if (showCreate && pacientes.length === 0) {
+      fetchPacientes();
+    }
+  }, [showCreate]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -31,18 +91,25 @@ export default function ResultadosTab() {
     try {
       const text = await file.text();
       const jsonData = JSON.parse(text);
-      const res = await api.post('/resultados/importar-json/', jsonData);
 
-      alert(
-        `${res.data.mensaje}` +
-          (res.data.errores?.length ? `\nAdvertencias:\n${res.data.errores.join('\n')}` : '')
-      );
+      if (!Array.isArray(jsonData)) {
+        alert('El archivo JSON debe contener un arreglo de resultados.');
+        return;
+      }
+
+      const res = await api.post('/resultados/carga-masiva/', { resultados: jsonData });
+      alert(`${res.data.mensaje}\nTotal procesados: ${res.data.total ?? (res.data.creados + res.data.actualizados)}`);
       await fetchResultados();
     } catch (err) {
       if (err instanceof SyntaxError) {
         alert('El archivo seleccionado no es un JSON válido.');
       } else {
-        alert(err.response?.data?.error || 'Error al importar resultados.');
+        const data = err.response?.data;
+        if (data?.errores?.length) {
+          alert(`${data.detail || 'Errores en la carga masiva.'}\n\n${data.errores.join('\n')}`);
+        } else {
+          alert(data?.detail || data?.error || 'Error al importar resultados.');
+        }
       }
     } finally {
       setImportando(false);
@@ -50,13 +117,24 @@ export default function ResultadosTab() {
     }
   };
 
-  const resultadosFiltrados = resultados.filter(
-    (item) =>
-      (item.paciente_display || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-      String(item.consecutivo).includes(busqueda) ||
-      (item.codigo_consulta || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-      (item.tipo_examen || '').toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const resultadosFiltrados = resultados.filter((item) => {
+    const q = busqueda.toLowerCase().trim();
+    if (!q) return true;
+    const fechaToma = item.fecha_toma ? new Date(item.fecha_toma).toLocaleString().toLowerCase() : '';
+    const fechaTomaIso = item.fecha_toma ? String(item.fecha_toma).toLowerCase() : '';
+    const fechaResultado = item.fecha_resultado ? new Date(item.fecha_resultado).toLocaleString().toLowerCase() : '';
+    const fechaResultadoIso = item.fecha_resultado ? String(item.fecha_resultado).toLowerCase() : '';
+    return (
+      (item.paciente_display || '').toLowerCase().includes(q) ||
+      String(item.consecutivo).toLowerCase().includes(q) ||
+      (item.codigo_consulta || '').toLowerCase().includes(q) ||
+      (item.tipo_examen || '').toLowerCase().includes(q) ||
+      fechaToma.includes(q) ||
+      fechaTomaIso.includes(q) ||
+      fechaResultado.includes(q) ||
+      fechaResultadoIso.includes(q)
+    );
+  });
 
   const handleDelete = async (id) => {
     if (!window.confirm('¿Está seguro de eliminar este resultado?')) return;
@@ -81,12 +159,50 @@ export default function ResultadosTab() {
     }
   };
 
+  const handleTipoExamenChange = (e) => {
+    const value = e.target.value;
+    const tipo = TIPOS_EXAMEN.find((t) => t.value === value);
+    setNuevoResultado((prev) => ({
+      ...prev,
+      tipo_examen: value,
+      contenido_resultado: tipo ? tipo.plantilla : prev.contenido_resultado,
+      detalle_examenes: prev.detalle_examenes || (tipo ? tipo.label : ''),
+    }));
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...nuevoResultado,
+        paciente: Number(nuevoResultado.paciente),
+      };
+      await api.post('/resultados/', payload);
+      setNuevoResultado(initialNuevoResultado);
+      setShowCreate(false);
+      await fetchResultados();
+      alert('Resultado creado correctamente.');
+    } catch (err) {
+      const detail = err.response?.data;
+      alert(typeof detail === 'string' ? detail : 'Error al crear el resultado. Verifique los datos.');
+    }
+  };
+
   return (
     <div className="card">
       <div className="table-toolbar">
         <h3>Gestión de Resultados</h3>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-save"
+            onClick={() => setShowCreate((v) => !v)}
+          >
+            <i className="fa-solid fa-plus"></i>{' '}
+            {showCreate ? 'Cerrar' : 'Nuevo resultado'}
+          </button>
+
           <input
             type="file"
             accept=".json,application/json"
@@ -119,7 +235,7 @@ export default function ResultadosTab() {
             <label>Buscar:</label>
             <input
               type="text"
-              placeholder="Consecutivo, código, paciente..."
+              placeholder="Consecutivo, código, paciente o fecha..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }}
@@ -128,11 +244,98 @@ export default function ResultadosTab() {
         </div>
       </div>
 
+      {showCreate && (
+        <form onSubmit={handleCreate} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #dee2e6', borderRadius: '6px' }}>
+          <div className="form-row">
+            <div className="form-group col-4">
+              <label>Paciente *</label>
+              <select
+                value={nuevoResultado.paciente}
+                onChange={(e) => setNuevoResultado({ ...nuevoResultado, paciente: e.target.value })}
+                required
+              >
+                <option value="">Seleccione un paciente</option>
+                {pacientes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.documento} - {p.nombres} {p.apellidos}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group col-4">
+              <label>Tipo de examen *</label>
+              <select
+                value={nuevoResultado.tipo_examen}
+                onChange={handleTipoExamenChange}
+                required
+              >
+                <option value="">Seleccione un tipo de examen</option>
+                {TIPOS_EXAMEN.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group col-4">
+              <label>Consecutivo</label>
+              <input value="Se generará automáticamente" disabled />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group col-4">
+              <label>Fecha y hora de toma *</label>
+              <input
+                type="datetime-local"
+                value={nuevoResultado.fecha_toma}
+                onChange={(e) => setNuevoResultado({ ...nuevoResultado, fecha_toma: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group col-4">
+              <label>Médico remitente</label>
+              <input
+                value={nuevoResultado.medico_remitente}
+                onChange={(e) => setNuevoResultado({ ...nuevoResultado, medico_remitente: e.target.value })}
+              />
+            </div>
+            <div className="form-group col-4">
+              <label>Estado</label>
+              <select
+                value={nuevoResultado.estado}
+                onChange={(e) => setNuevoResultado({ ...nuevoResultado, estado: e.target.value })}
+              >
+                <option value="PENDIENTE">PENDIENTE</option>
+                <option value="IMPRESO">IMPRESO</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group col-6">
+              <label>Detalle de exámenes</label>
+              <input
+                value={nuevoResultado.detalle_examenes}
+                onChange={(e) => setNuevoResultado({ ...nuevoResultado, detalle_examenes: e.target.value })}
+              />
+            </div>
+            <div className="form-group col-6">
+              <label>Contenido del resultado</label>
+              <textarea
+                value={nuevoResultado.contenido_resultado}
+                onChange={(e) => setNuevoResultado({ ...nuevoResultado, contenido_resultado: e.target.value })}
+                rows={4}
+              />
+            </div>
+          </div>
+          <button type="submit" className="btn-save">Guardar resultado</button>
+        </form>
+      )}
+
       <div style={{ overflowX: 'auto' }}>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Consecutivo / Toma</th>
+              <th>Consecutivo / Fecha de toma</th>
               <th>Código Consulta</th>
               <th>Paciente</th>
               <th>Exámenes / Acciones</th>
@@ -141,6 +344,8 @@ export default function ResultadosTab() {
           </thead>
           <tbody>
             {resultadosFiltrados.map((item) => {
+              const fechaToma = item.fecha_toma ? new Date(item.fecha_toma).toLocaleString() : '-';
+              const fechaResultado = item.fecha_resultado ? new Date(item.fecha_resultado).toLocaleString() : '';
               const horaToma = item.fecha_toma
                 ? new Date(item.fecha_toma).toLocaleTimeString([], {
                     hour: '2-digit',
@@ -154,7 +359,13 @@ export default function ResultadosTab() {
                   <td>
                     <strong>{item.consecutivo}</strong>
                     <br />
-                    <small style={{ color: '#6c757d' }}>{horaToma}</small>
+                    <small style={{ color: '#6c757d' }}>{fechaToma}</small>
+                    {fechaResultado && (
+                      <>
+                        <br />
+                        <small style={{ color: '#6c757d' }}>Resultado: {fechaResultado}</small>
+                      </>
+                    )}
                   </td>
                   <td>
                     <code

@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { jwtDecode } from 'jwt-decode';
-import api from '../api/axiosconfig';
+import api from '../api/axiosConfig';
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ onLoginSuccess, onOpenPortalPaciente }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,11 +27,12 @@ export default function Login({ onLoginSuccess }) {
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
 
-      const decoded = jwtDecode(access);
-      const loggedUser = (decoded.username || username).toUpperCase();
-
-      onLoginSuccess(loggedUser);
+      // Obtener los datos del usuario autenticado desde el serializer de la app usuarios
+      const perfil = await api.get('/usuarios/me/');
+      onLoginSuccess(perfil.data);
     } catch (err) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       if (err.response?.status === 401) {
         setError('Usuario o contraseña incorrectos.');
       } else {
@@ -48,7 +48,7 @@ export default function Login({ onLoginSuccess }) {
       <button
         type="button"
         className="top-btn"
-        onClick={() => alert('Módulo de Consultas externas en construcción.')}
+        onClick={onOpenPortalPaciente || (() => alert('Módulo de consultas públicas no disponible.'))}
       >
         Consultas
       </button>

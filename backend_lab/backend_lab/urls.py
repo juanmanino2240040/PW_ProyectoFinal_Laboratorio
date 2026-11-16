@@ -12,8 +12,11 @@ urlpatterns = [
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # Endpoints de la API REST (usuarios, pacientes, resultados, reportes, consultas)
+    # Endpoints de la API REST del dominio de laboratorio
     path('api/', include('laboratorio.urls')),
+
+    # Endpoints de usuarios (serializer y perfil desde la app usuarios)
+    path('api/', include('usuarios.urls')),
 ]
 
 # Servir archivos PDF/Excel generados en Reportes durante desarrollo

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../api/axiosconfig';
+import api from '../api/axiosConfig';
 
 export default function PortalPaciente({ onVolverLogin }) {
   const [documento, setDocumento] = useState('');

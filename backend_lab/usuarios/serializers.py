@@ -83,3 +83,14 @@ class PerfilUsuarioSerializer(serializers.ModelSerializer):
             'rol_display',
         ]
         read_only_fields = fields
+
+
+class CambioPasswordSerializer(serializers.Serializer):
+    password_actual = serializers.CharField(write_only=True, required=True)
+    password_nueva = serializers.CharField(write_only=True, required=True, min_length=8)
+    confirmar_password = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        if attrs['password_nueva'] != attrs['confirmar_password']:
+            raise serializers.ValidationError({'confirmar_password': 'La confirmación no coincide con la nueva contraseña.'})
+        return attrs

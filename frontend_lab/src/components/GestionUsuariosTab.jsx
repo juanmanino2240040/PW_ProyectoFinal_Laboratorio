@@ -1,165 +1,266 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axiosConfig';
 
-const PERMISOS_LISTA = [
-  'Todos',
-  'Actualizar Permisos',
-  'Actualizar usuario',
-  'Añadir orden antigua',
-  'Añadir Roles',
-  'Añadir Usuario',
-  'Eliminar usuario',
-  'Importar copia de seguridad sistema',
-  'Vista Afiliaciones',
-  'Vista Doctores',
-  'Vista Empresas',
-  'Vista Examenes',
-  'Vista Gestion',
-  'Vista Pacientes',
-  'Vista Plantillas',
-  'Vista Reportes',
-  'Vista Resultados',
-];
+const emptyForm = {
+  username: '',
+  email: '',
+  first_name: '',
+  last_name: '',
+  documento: '',
+  cargo: '',
+  rol: 'REGISTRO',
+  is_active: true,
+  password: '',
+};
 
-const USUARIOS_DEMO = [
-  { id: 3, usuario: 'MERY', rol: 'Recepcion' },
-  { id: 4, usuario: 'PATRICIA', rol: 'Registro' },
-  { id: 6, usuario: 'GRACIELA', rol: 'Registro' },
-  { id: 9, usuario: 'YOMARA', rol: 'Registro' },
-  { id: 10, usuario: 'ADENISC', rol: 'Registro' },
-];
+const getUsuarioNombre = (u) => u.username || u.usuario || '';
+const getUsuarioRol = (u) => u.rol_display || u.rol || '';
+
+const formatApiError = (data, fallback) => {
+  if (!data) return fallback;
+  if (typeof data === 'string') return data;
+  if (data.detail) return data.detail;
+  try {
+    return Object.entries(data)
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+      .join('\n');
+  } catch {
+    return fallback;
+  }
+};
 
 export default function GestionUsuariosTab() {
-  const [rolSeleccionado, setRolSeleccionado] = useState('Recepcion');
-  const [usuarios, setUsuarios] = useState(USUARIOS_DEMO);
+  const [usuarios, setUsuarios] = useState([]);
   const [busquedaUsuario, setBusquedaUsuario] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState(3);
-  const [permisosActivos, setPermisosActivos] = useState([
-    'Vista Afiliaciones',
-    'Vista Doctores',
-    'Vista Empresas',
-    'Vista Examenes',
-    'Vista Pacientes',
-    'Vista Plantillas',
-    'Vista Reportes',
-    'Vista Resultados',
-  ]);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [formData, setFormData] = useState(emptyForm);
+  const [mode, setMode] = useState(null); // 'create' | 'edit' | null
+  const [loading, setLoading] = useState(false);
+
+  const fetchUsuarios = async () => {
+    try {
+      const res = await api.get('/usuarios/');
+      setUsuarios(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Error al cargar usuarios:', err);
+      setUsuarios([]);
+    }
+  };
 
   useEffect(() => {
-    const fetchUsuarios = async () => {
-      try {
-        const res = await api.get('/usuarios/');
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setUsuarios(res.data);
-        }
-      } catch {
-        // Mantiene usuarios locales si el endpoint aún no existe en Django
-      }
-    };
     fetchUsuarios();
   }, []);
 
-  const togglePermiso = (permiso) => {
-    if (permiso === 'Todos') {
-      setPermisosActivos((prev) =>
-        prev.includes('Todos') ? [] : [...PERMISOS_LISTA]
-      );
+  const usuariosFiltrados = usuarios.filter((u) => {
+    const nombre = getUsuarioNombre(u).toLowerCase();
+    const rol = getUsuarioRol(u).toLowerCase();
+    const q = busquedaUsuario.toLowerCase();
+    return nombre.includes(q) || rol.includes(q);
+  });
+
+  const selectedUser = usuarios.find((u) => u.id === selectedUserId) || null;
+
+  const startCreate = () => {
+    setSelectedUserId(null);
+    setFormData(emptyForm);
+    setMode('create');
+  };
+
+  const startEdit = () => {
+    if (!selectedUser) {
+      alert('Seleccione un usuario para editar.');
       return;
     }
-    setPermisosActivos((prev) =>
-      prev.includes(permiso) ? prev.filter((p) => p !== permiso) : [...prev, permiso]
-    );
+    setFormData({
+      username: selectedUser.username || '',
+      email: selectedUser.email || '',
+      first_name: selectedUser.first_name || '',
+      last_name: selectedUser.last_name || '',
+      documento: selectedUser.documento || '',
+      cargo: selectedUser.cargo || '',
+      rol: selectedUser.rol || 'REGISTRO',
+      is_active: selectedUser.is_active !== false,
+      password: '',
+    });
+    setMode('edit');
+  };
+
+  const cancelForm = () => {
+    setMode(null);
+    setFormData(emptyForm);
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (mode === 'create') {
+        if (!formData.password || formData.password.length < 8) {
+          alert('La contraseña es obligatoria y debe tener al menos 8 caracteres.');
+          setLoading(false);
+          return;
+        }
+        const payload = { ...formData };
+        await api.post('/usuarios/', payload);
+        alert('Usuario creado correctamente.');
+      } else if (mode === 'edit' && selectedUserId) {
+        const payload = { ...formData };
+        if (!payload.password) delete payload.password; // opcional al editar
+        await api.put(`/usuarios/${selectedUserId}/`, payload);
+        alert('Usuario actualizado correctamente.');
+      }
+      await fetchUsuarios();
+      cancelForm();
+    } catch (err) {
+      alert(formatApiError(err.response?.data, 'Error al guardar el usuario.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteUser = async () => {
-    if (!selectedUserId) return;
-    if (!window.confirm('¿Eliminar el usuario seleccionado?')) return;
+    if (!selectedUserId) {
+      alert('Seleccione un usuario para eliminar.');
+      return;
+    }
+    if (!window.confirm('¿Está seguro de eliminar el usuario seleccionado?')) return;
     try {
       await api.delete(`/usuarios/${selectedUserId}/`);
-    } catch {
-      // Fallback local
+      setSelectedUserId(null);
+      await fetchUsuarios();
+      if (mode === 'edit') cancelForm();
+      alert('Usuario eliminado correctamente.');
+    } catch (err) {
+      alert(formatApiError(err.response?.data, 'No se pudo eliminar el usuario.'));
     }
-    setUsuarios((prev) => prev.filter((u) => u.id !== selectedUserId));
-    setSelectedUserId(null);
   };
 
-  const usuariosFiltrados = usuarios.filter(
-    (u) =>
-      u.usuario.toLowerCase().includes(busquedaUsuario.toLowerCase()) ||
-      u.rol.toLowerCase().includes(busquedaUsuario.toLowerCase())
-  );
-
   return (
-    <div className="two-column-layout">
-      <div className="card">
-        <div className="card-header">Gestión de roles</div>
-        <div className="card-body">
-          <div className="form-group">
-            <label style={{ fontWeight: 'bold', fontSize: '13px' }}>Rol :</label>
-            <select
-              value={rolSeleccionado}
-              onChange={(e) => setRolSeleccionado(e.target.value)}
-              style={{ width: '100%', padding: '6px', border: '1px solid #ccc', borderRadius: '4px', marginTop: '5px' }}
-            >
-              <option value="Recepcion">Recepcion</option>
-              <option value="Bacteriólogo / Laboratorio">Bacteriólogo / Laboratorio</option>
-              <option value="Administrador">Administrador</option>
-            </select>
+    <div className="card">
+      <div className="card-header">Gestión de usuarios</div>
+      <div className="card-body">
+        <div className="table-toolbar" style={{ marginBottom: '12px' }}>
+          <div>
+            <label style={{ fontSize: '12px', marginRight: '6px' }}>Buscar:</label>
+            <input
+              type="text"
+              value={busquedaUsuario}
+              onChange={(e) => setBusquedaUsuario(e.target.value)}
+              placeholder="Usuario o rol..."
+              style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '4px' }}
+            />
           </div>
-
-          <label style={{ fontWeight: 'bold', fontSize: '13px', marginTop: '15px', display: 'block' }}>
-            Permisos :
-          </label>
-          <div className="checkbox-list">
-            {PERMISOS_LISTA.map((permiso) => (
-              <label key={permiso} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={permisosActivos.includes(permiso)}
-                  onChange={() => togglePermiso(permiso)}
-                />
-                {permiso}
-              </label>
-            ))}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              title="Nuevo usuario"
+              onClick={startCreate}
+              style={{ background: '#198754', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              <i className="fa-solid fa-plus"></i> Nuevo
+            </button>
+            <button
+              title="Editar usuario"
+              onClick={startEdit}
+              style={{ background: '#0d6efd', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              <i className="fa-solid fa-pen-to-square"></i> Editar
+            </button>
+            <button
+              title="Eliminar usuario"
+              onClick={handleDeleteUser}
+              style={{ background: '#dc3545', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              <i className="fa-solid fa-trash"></i> Eliminar
+            </button>
           </div>
         </div>
-      </div>
 
-      <div className="card">
-        <div className="card-header">Gestión de usuarios</div>
-        <div className="card-body">
-          <div className="table-toolbar">
-            <div style={{ display: 'flex', gap: '5px' }}>
-              <button style={{ padding: '5px 10px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
-                <i className="fa-solid fa-copy"></i>
+        {mode && (
+          <form onSubmit={handleSubmit} style={{ marginBottom: '16px', padding: '12px', border: '1px solid #dee2e6', borderRadius: '6px', background: '#f8f9fa' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '12px' }}>
+              {mode === 'create' ? 'Crear usuario' : `Editar usuario #${selectedUserId}`}
+            </h4>
+            <div className="form-row">
+              <div className="form-group col-4">
+                <label>Usuario *</label>
+                <input name="username" value={formData.username} onChange={handleChange} required />
+              </div>
+              <div className="form-group col-4">
+                <label>Correo</label>
+                <input type="email" name="email" value={formData.email} onChange={handleChange} />
+              </div>
+              <div className="form-group col-4">
+                <label>Rol *</label>
+                <select name="rol" value={formData.rol} onChange={handleChange} required>
+                  <option value="ADMIN">Administrador</option>
+                  <option value="RECEPCION">Recepción</option>
+                  <option value="REGISTRO">Registro</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group col-3">
+                <label>Nombre</label>
+                <input name="first_name" value={formData.first_name} onChange={handleChange} />
+              </div>
+              <div className="form-group col-3">
+                <label>Apellido</label>
+                <input name="last_name" value={formData.last_name} onChange={handleChange} />
+              </div>
+              <div className="form-group col-3">
+                <label>Documento</label>
+                <input name="documento" value={formData.documento} onChange={handleChange} />
+              </div>
+              <div className="form-group col-3">
+                <label>Cargo</label>
+                <input name="cargo" value={formData.cargo} onChange={handleChange} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group col-4">
+                <label>Contraseña {mode === 'create' ? '*' : '(dejar en blanco para no cambiar)'}</label>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required={mode === 'create'}
+                  minLength={mode === 'create' ? 8 : undefined}
+                />
+              </div>
+              <div className="form-group col-4" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '22px' }}>
+                <input id="is_active" type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} style={{ width: 'auto' }} />
+                <label htmlFor="is_active" style={{ margin: 0 }}>Usuario activo</label>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="submit" className="btn-save" disabled={loading}>
+                {loading ? 'Guardando...' : 'Guardar'}
               </button>
-              <button style={{ padding: '5px 10px', background: '#198754', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
-                <i className="fa-solid fa-file-excel"></i>
-              </button>
-              <button style={{ padding: '5px 10px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
-                <i className="fa-solid fa-file-pdf"></i>
-              </button>
-              <button style={{ padding: '5px 10px', background: '#17a2b8', color: 'white', border: 'none', borderRadius: '3px', fontSize: '12px', cursor: 'pointer' }}>
-                Ver Columnas <i className="fa-solid fa-caret-down"></i>
+              <button type="button" onClick={cancelForm} style={{ padding: '8px 14px', borderRadius: '4px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>
+                Cancelar
               </button>
             </div>
-            <div>
-              <label style={{ fontSize: '12px' }}>Buscar: </label>
-              <input
-                type="text"
-                value={busquedaUsuario}
-                onChange={(e) => setBusquedaUsuario(e.target.value)}
-                style={{ padding: '4px', border: '1px solid #ccc', borderRadius: '3px' }}
-              />
-            </div>
-          </div>
+          </form>
+        )}
 
+        <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
               <tr>
-                <th style={{ background: '#212529', color: 'white' }}>Id <i className="fa-solid fa-sort"></i></th>
-                <th style={{ background: '#212529', color: 'white' }}>Usuario <i className="fa-solid fa-sort"></i></th>
-                <th style={{ background: '#212529', color: 'white' }}>Rol <i className="fa-solid fa-sort"></i></th>
+                <th>ID</th>
+                <th>Usuario</th>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Documento</th>
+                <th>Cargo</th>
+                <th>Activo</th>
               </tr>
             </thead>
             <tbody>
@@ -173,47 +274,26 @@ export default function GestionUsuariosTab() {
                   }}
                 >
                   <td>{u.id}</td>
-                  <td>{u.usuario}</td>
-                  <td>{u.rol}</td>
+                  <td>{getUsuarioNombre(u)}</td>
+                  <td>{[u.first_name, u.last_name].filter(Boolean).join(' ') || '-'}</td>
+                  <td>{u.email || '-'}</td>
+                  <td>{getUsuarioRol(u)}</td>
+                  <td>{u.documento || '-'}</td>
+                  <td>{u.cargo || '-'}</td>
+                  <td>{u.is_active ? 'Sí' : 'No'}</td>
                 </tr>
               ))}
+              {usuariosFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', color: '#6c757d' }}>No hay usuarios para mostrar.</td>
+                </tr>
+              )}
             </tbody>
           </table>
+        </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
-            <span style={{ fontSize: '12px', color: '#6c757d' }}>
-              Mostrando registros del 1 al {usuariosFiltrados.length} de un total de {usuariosFiltrados.length} registros
-            </span>
-            <div style={{ display: 'flex', gap: '2px' }}>
-              <button style={{ padding: '5px 10px', border: '1px solid #ccc', background: '#fff', fontSize: '12px' }}>Anterior</button>
-              <button style={{ padding: '5px 10px', border: '1px solid #0d6efd', background: '#0d6efd', color: 'white', fontSize: '12px' }}>1</button>
-              <button style={{ padding: '5px 10px', border: '1px solid #ccc', background: '#fff', fontSize: '12px' }}>Siguiente</button>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '20px' }}>
-            <button
-              title="Nuevo usuario"
-              onClick={() => alert('Formulario de creación de usuario')}
-              style={{ background: '#198754', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              <i className="fa-solid fa-plus"></i>
-            </button>
-            <button
-              title="Editar usuario"
-              onClick={() => alert(`Editando usuario ID: ${selectedUserId}`)}
-              style={{ background: '#0d6efd', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              <i className="fa-solid fa-pen-to-square"></i>
-            </button>
-            <button
-              title="Eliminar usuario"
-              onClick={handleDeleteUser}
-              style={{ background: '#dc3545', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              <i className="fa-solid fa-trash"></i>
-            </button>
-          </div>
+        <div style={{ marginTop: '12px', fontSize: '12px', color: '#6c757d' }}>
+          Mostrando {usuariosFiltrados.length} de {usuarios.length} usuarios.
         </div>
       </div>
     </div>

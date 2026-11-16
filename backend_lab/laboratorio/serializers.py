@@ -68,7 +68,7 @@ class ResultadoSerializer(serializers.ModelSerializer):
             'medico_remitente', 'estado', 'fecha_toma', 'fecha_resultado',
             'detalle_examenes', 'contenido_resultado', 'parametros_json'
         ]
-        read_only_fields = ['codigo_consulta', 'fecha_resultado']
+        read_only_fields = ['consecutivo', 'codigo_consulta', 'fecha_resultado']
 
     def get_paciente_display(self, obj):
         return f"{obj.paciente.documento}: {obj.paciente.nombres} {obj.paciente.apellidos}"
@@ -78,14 +78,37 @@ class ReporteSerializer(serializers.ModelSerializer):
     tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
     generado_por_nombre = serializers.CharField(source='generado_por.username', read_only=True)
     paciente_documento = serializers.CharField(source='paciente.documento', read_only=True)
+    paciente_nombre = serializers.SerializerMethodField()
+    resultado_consecutivo = serializers.CharField(source='resultado.consecutivo', read_only=True)
+    resultado_paciente = serializers.SerializerMethodField()
 
     class Meta:
         model = Reporte
         fields = [
-            'id', 'tipo', 'tipo_display', 'titulo', 'resultado', 'paciente',
-            'paciente_documento', 'generado_por', 'generado_por_nombre',
+            'id', 'tipo', 'tipo_display', 'titulo', 'resultado', 'resultado_consecutivo', 'resultado_paciente',
+            'paciente', 'paciente_documento', 'paciente_nombre',
+            'generado_por', 'generado_por_nombre',
             'filtros_aplicados', 'archivo', 'fecha_generacion'
         ]
+        read_only_fields = [
+            'generado_por', 'generado_por_nombre', 'archivo', 'fecha_generacion',
+            'tipo_display', 'paciente_documento', 'paciente_nombre',
+            'resultado_consecutivo', 'resultado_paciente'
+        ]
+
+    def get_paciente_nombre(self, obj):
+        if obj.paciente:
+            return f"{obj.paciente.nombres} {obj.paciente.apellidos}".strip()
+        if obj.resultado and obj.resultado.paciente:
+            p = obj.resultado.paciente
+            return f"{p.nombres} {p.apellidos}".strip()
+        return ''
+
+    def get_resultado_paciente(self, obj):
+        if obj.resultado and obj.resultado.paciente:
+            p = obj.resultado.paciente
+            return f"{p.documento}: {p.nombres} {p.apellidos}".strip()
+        return ''
 
 
 class ConsultaSerializer(serializers.ModelSerializer):
